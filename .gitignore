@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+Discord Token.txt
+*.log
+.DS_Store
+.pnpm-store/
+._*
+
+# Credentials, authentication state and private operational data stay local.
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+*service-account*.json
+*.dump
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.db
+backups/
+exports/
+data/
