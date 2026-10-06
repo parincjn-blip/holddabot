@@ -12,7 +12,7 @@ export async function validateOutputChannel(guild: Guild, id: string, feature: C
   const permissions = channel.permissionsFor(me);
   const required = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages];
   if (feature !== 'voice_join' && feature !== 'voice_leave') required.push(PermissionFlagsBits.EmbedLinks);
-  if (feature === 'member_welcome' || feature === 'level_up' || feature === 'stream_start') required.push(PermissionFlagsBits.AttachFiles);
+  if (feature === 'member_welcome' || feature === 'level_up' || feature === 'stream_start' || feature === 'rank_roles') required.push(PermissionFlagsBits.AttachFiles);
   const missing = required.filter((bit) => !permissions?.has(bit));
   const names: Record<string, string> = {
     [String(PermissionFlagsBits.ViewChannel)]: 'View Channel',

@@ -1,0 +1,21 @@
+{
+  "canvas": { "width": 1200, "height": 400 },
+  "avatar": { "centerX": 184, "centerY": 200, "diameter": 208 },
+  "name": {
+    "x": 352, "y": 111, "width": 520, "height": 60,
+    "font": "fonts/Kanit-Bold.ttf", "fontFamily": "Kanit", "fontWeight": "bold",
+    "fontSize": 42, "minFontSize": 24, "color": "#FFFFFF", "align": "left"
+  },
+  "drawOrder": ["background", "avatar", "overlay", "name"],
+  "ranks": [
+    { "tier": 1, "th": "Crew",              "en": "CREW",          "color": "#9AA3B5", "background": "backgrounds/rank1-crew.png",          "overlay": "overlays/rank1-crew-overlay.png" },
+    { "tier": 2, "th": "เด็กหัดเดิน",         "en": "ROOKIE",        "color": "#3D8BFF", "background": "backgrounds/rank2-rookie.png",        "overlay": "overlays/rank2-rookie-overlay.png" },
+    { "tier": 3, "th": "เด็กอนุบาล",          "en": "KINDER",        "color": "#3DB4B7", "background": "backgrounds/rank3-kinder.png",        "overlay": "overlays/rank3-kinder-overlay.png" },
+    { "tier": 4, "th": "เด็กประถม",           "en": "JUNIOR",        "color": "#3DDC6E", "background": "backgrounds/rank4-junior.png",        "overlay": "overlays/rank4-junior-overlay.png" },
+    { "tier": 5, "th": "รุ่นพี่มัธยม",          "en": "SENIOR",        "color": "#A259FF", "background": "backgrounds/rank5-senior.png",        "overlay": "overlays/rank5-senior-overlay.png" },
+    { "tier": 6, "th": "อาจารย์ที่ปรึกษา",      "en": "ADVISOR",       "color": "#D14AA7", "background": "backgrounds/rank6-advisor.png",       "overlay": "overlays/rank6-advisor-overlay.png" },
+    { "tier": 7, "th": "อาจารย์พิเศษ",         "en": "LECTURER",      "color": "#FF3B4E", "background": "backgrounds/rank7-lecturer.png",      "overlay": "overlays/rank7-lecturer-overlay.png" },
+    { "tier": 8, "th": "รองผู้อำนวยการ",        "en": "VICE DIRECTOR", "color": "#FF7637", "background": "backgrounds/rank8-vice-director.png", "overlay": "overlays/rank8-vice-director-overlay.png" },
+    { "tier": 9, "th": "ผู้อำนวยการสถาบัน",     "en": "DIRECTOR",      "color": "#FFB020", "background": "backgrounds/rank9-director.png",      "overlay": "overlays/rank9-director-overlay.png" }
+  ]
+}

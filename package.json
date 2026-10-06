@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
+    "dashboard": "node dist/dashboard.js",
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test tests/unit.test.mjs",
+    "test": "node --test tests/unit.test.mjs tests/dashboard.test.mjs tests/dashboard-http.test.mjs tests/rank-up-card.test.mjs",
     "db:migrate": "tsx src/migrate.ts",
     "config:import": "node scripts/import-legacy-config.mjs"
   },

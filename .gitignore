@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .env.*
+.dashboard.env
 !.env.example
 Discord Token.txt
 *.log
@@ -24,3 +25,4 @@ credentials*.json
 backups/
 exports/
 data/
+output/

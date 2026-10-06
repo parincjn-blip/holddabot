@@ -73,6 +73,7 @@ function guildFixture({ missing = [], roleManaged = false, position = 1, channel
 test('announcement validation checks Attach Files, Embed Links and channel visibility', async () => {
   assert.deepEqual(await validateOutputChannel(guildFixture(), 'channel-a', 'level_up'), []);
   assert.match((await validateOutputChannel(guildFixture({ missing: [P.AttachFiles] }), 'channel-a', 'level_up')).join(), /Attach Files/);
+  assert.match((await validateOutputChannel(guildFixture({ missing: [P.AttachFiles] }), 'channel-a', 'rank_roles')).join(), /Attach Files/);
   assert.match((await validateOutputChannel(guildFixture({ missing: [P.ViewChannel, P.EmbedLinks] }), 'channel-a', 'member_leave')).join(), /View Channel.*Embed Links/);
   assert.ok((await validateOutputChannel(guildFixture({ channelType: ChannelType.GuildVoice }), 'channel-a', 'level_up')).length);
   assert.deepEqual(await validateOutputChannel(guildFixture({ missing: [P.EmbedLinks, P.AttachFiles] }), 'channel-a', 'voice_join'), []);

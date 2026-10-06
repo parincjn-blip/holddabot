@@ -16,6 +16,9 @@ import { announceStreamStart } from '../dist/streams.js';
 import { featureDefinitions } from '../dist/feature-definitions.js';
 import { ChannelType, Collection } from 'discord.js';
 import { syncStreamRole, reconcileStreamRoles } from '../dist/stream-roles.js';
+import { getMessageTemplate, saveMessageTemplate } from '../dist/template-store.js';
+import { templateDefinitions } from '../dist/message-templates.js';
+import { createCanvas } from '@napi-rs/canvas';
 
 const schema = `disbot_test_${randomUUID().replaceAll('-', '')}`;
 assert.match(schema, /^disbot_test_[a-f0-9]{32}$/);
@@ -25,11 +28,23 @@ try {
   await admin.query(`CREATE SCHEMA "${schema}"`); created = true;
   // Do not include public in search_path, so missing test tables cannot fall back to production.
   pool.options.options = `-c search_path=${schema}`;
-  for (const name of ['001_initial.sql', '002_feature_settings.sql', '003_multi_guild_settings.sql', '004_stream_features.sql', '005_stream_mention_role.sql', '006_stream_active_role.sql']) {
+  for (const name of ['001_initial.sql', '002_feature_settings.sql', '003_multi_guild_settings.sql', '004_stream_features.sql', '005_stream_mention_role.sql', '006_stream_active_role.sql', '007_dashboard_templates.sql']) {
     await pool.query(await readFile(new URL(`../migrations/${name}`, import.meta.url), 'utf8'));
   }
   assert.equal((await pool.query('SELECT current_schema() AS name')).rows[0].name, schema);
   const a = 'test-guild-a', b = 'test-guild-b';
+  const template = Object.fromEntries(Object.entries(templateDefinitions.voice_join).filter(([k]) => !['label','kind'].includes(k)));
+  assert.equal(await getMessageTemplate(a,'voice_join'),null);
+  assert.equal(await saveMessageTemplate(a,'voice_join',template,'test-admin',0),1);
+  assert.deepEqual(await getMessageTemplate(a,'voice_join'),template);
+  assert.equal(await getMessageTemplate(b,'voice_join'),null);
+  assert.equal(await saveMessageTemplate(a,'voice_join',null,'test-admin',0),null);
+  const concurrent = await Promise.all([saveMessageTemplate(a,'voice_join',null,'test-admin',1),saveMessageTemplate(a,'voice_join',template,'test-admin',1)]);
+  assert.equal(concurrent.filter(v=>v===2).length,1);
+  assert.equal(concurrent.filter(v=>v===null).length,1);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM guild_message_template_history WHERE guild_id=$1',[a])).rows[0].n,2);
+  assert.equal(await saveMessageTemplate(a,'voice_join',null,'test-admin',2),3);
+  assert.equal(await getMessageTemplate(a,'voice_join'),null);
   await Promise.all([loadGuildSettings(a), loadGuildSettings(b)]);
   assert.equal(Object.values(getGuildSettings(a).features).filter(Boolean).length, 0);
   assert.equal(Object.keys(getGuildSettings(a).features).length, featureDefinitions.length);
@@ -108,6 +123,27 @@ try {
   await syncRankRole(member);
   assert.equal(held.has('test-role-old'), false, 'clean up duplicate managed ranks even if target already held');
   await removeRankRule(a, 'test-role-old');
+  // Exact kit role names produce one image-only promotion, using the guild display name.
+  const rankMessages = [];
+  guild.roles.cache.set('test-role-a', { name: 'Crew' });
+  member.displayName = 'น้าเก่ง';
+  member.displayAvatarURL = () => 'https://cdn.discordapp.com/test-avatar.png';
+  guild.channels.fetch = async (id) => ({ id, type: ChannelType.GuildText, permissionsFor: () => ({ has: () => true }), isSendable: () => true, send: async (data) => rankMessages.push(data) });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(createCanvas(256,256).toBuffer('image/png'));
+  try {
+    held.delete('test-role-a');
+    await Promise.all([syncRankRole(member),syncRankRole(member)]);
+    assert.equal(rankMessages.length,1,'concurrent sync must not duplicate rank announcements');
+    assert.equal(rankMessages[0].embeds,undefined);
+    assert.equal(rankMessages[0].files[0].description,'น้าเก่ง ได้รับตำแหน่ง Crew');
+    assert.equal(held.has('unrelated-role'),true);
+    held.delete('test-role-a');
+    globalThis.fetch = async () => new Response('',{status:503});
+    await syncRankRole(member);
+    assert.equal(held.has('test-role-a'),true,'avatar failure must not interrupt rank assignment');
+    assert.equal(rankMessages[1].embeds.length,1,'avatar failure retains the existing announcement');
+  } finally {globalThis.fetch = originalFetch;}
   // Real XP transactions in the isolated schema: streamer/viewer, stop/resume, daily cap, guild isolation.
   const voiceMember = (guildId, id, streaming) => ({
     guild: { id: guildId }, id, user: { username: id }, displayName: id, joinedAt: new Date(), voice: { streaming },

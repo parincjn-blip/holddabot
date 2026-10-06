@@ -4,6 +4,8 @@ import { isFeatureEnabled } from './features.js';
 import { getGuildSettings, isGuildReady } from './guild-settings.js';
 import { isStreamStart } from './stream-rules.js';
 import { createStreamAnnouncement } from './stream-announcement.js';
+import { customizeMessage } from './template-store.js';
+import { templateContext } from './message-templates.js';
 
 export async function announceStreamStart(oldState: VoiceState, newState: VoiceState): Promise<void> {
   const guild = newState.guild;
@@ -17,11 +19,11 @@ export async function announceStreamStart(oldState: VoiceState, newState: VoiceS
   if (!destination?.isSendable()) return;
 
   const voiceChannel = newState.channel ?? await guild.channels.fetch(newState.channelId).catch(() => null);
-  await destination.send(createStreamAnnouncement(
+  await destination.send(await customizeMessage(guild.id,'stream_start',templateContext(member,{channel_name:voiceChannel?.name ?? 'ห้องเสียง'}),createStreamAnnouncement(
     member,
     { id: newState.channelId, name: voiceChannel?.name ?? 'ห้องเสียง', guildId: guild.id, guildName: guild.name },
     settings.streamMentionRoleId,
     new Date(),
     config.timezone,
-  ));
+  )));
 }

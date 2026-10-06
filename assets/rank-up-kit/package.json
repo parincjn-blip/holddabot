@@ -1,0 +1,7 @@
+{
+  "name": "holddabet-rank-card",
+  "version": "1.0.0",
+  "description": "Rank-up card generator for the HoldDaBET Discord server",
+  "main": "rank-card.js",
+  "dependencies": { "@napi-rs/canvas": "^0.1.80" }
+}

@@ -3,6 +3,8 @@ import { getGuildSettings, isGuildReady } from './guild-settings.js';
 import { isFeatureEnabled } from './features.js';
 import { announceLevelUp, syncRankRole } from './roles.js';
 import { recordVoiceMinute } from './xp.js';
+import { customizeMessage } from './template-store.js';
+import { templateContext } from './message-templates.js';
 
 let running = false;
 const selfDeafSince = new Map<string, number>();
@@ -19,10 +21,10 @@ export async function announceVoiceJoin(oldState: VoiceState, newState: VoiceSta
     ? await newState.guild.channels.fetch(settings.channels.voice_join).catch(() => null) : channel;
   if (!destination?.isSendable()) return;
 
-  await destination.send({
+  await destination.send(await customizeMessage(newState.guild.id,'voice_join',templateContext(member,{channel_name:channel.name}),{
     content: `🔊 **${escapeMarkdown(member.displayName)}** เข้าห้อง **${escapeMarkdown(channel.name)}**`,
     allowedMentions: { parse: [] },
-  });
+  }));
 }
 
 export async function announceVoiceLeave(oldState: VoiceState, newState: VoiceState): Promise<void> {
@@ -37,10 +39,10 @@ export async function announceVoiceLeave(oldState: VoiceState, newState: VoiceSt
     ? await oldState.guild.channels.fetch(settings.channels.voice_leave).catch(() => null) : channel;
   if (!destination?.isSendable()) return;
 
-  await destination.send({
+  await destination.send(await customizeMessage(oldState.guild.id,'voice_leave',templateContext(member,{channel_name:channel.name}),{
     content: `🔇 **${escapeMarkdown(member.displayName)}** ออกจากห้อง **${escapeMarkdown(channel.name)}**`,
     allowedMentions: { parse: [] },
-  });
+  }));
 }
 
 function eligible(member: GuildMember): boolean {

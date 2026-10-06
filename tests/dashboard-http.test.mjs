@@ -1,0 +1,46 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createCanvas} from '@napi-rs/canvas';
+process.env.DISCORD_TOKEN='unit-test-placeholder-token';
+process.env.DATABASE_URL='postgresql://unused:unused@127.0.0.1:1/unused';
+process.env.DISCORD_CLIENT_ID='123456789012345678';process.env.DISCORD_CLIENT_SECRET='test-only-secret';process.env.DASHBOARD_SESSION_SECRET='ab'.repeat(32);
+const {createDashboardServer}=await import('../dist/dashboard.js');
+const {pool}=await import('../dist/db.js');
+const {encryptToken}=await import('../dist/dashboard-security.js');
+const {templateDefinitions}=await import('../dist/message-templates.js');
+test('OAuth state, per-request authorization, guild isolation, CSRF and optimistic conflict',async()=>{
+  const originalQuery=pool.query,originalConnect=pool.connect,originalFetch=globalThis.fetch;
+  const gid='123456789012345678',other='223456789012345678',csrf='test-csrf';let permission='32',revision=0,inserts=0,sessionStored;
+  pool.query=async(sql,values)=>{if(sql.startsWith('INSERT INTO dashboard_sessions'))sessionStored=values;if(sql.startsWith('SELECT * FROM dashboard_sessions'))return {rows:[{user_info:{id:'admin',name:'Demo'},csrf_token:csrf,access_token_cipher:encryptToken('test-access',process.env.DASHBOARD_SESSION_SECRET),id_hash:'hash'}]};if(sql==='SELECT guild_id FROM guild_bot_settings')return {rows:[{guild_id:gid}]};return {rows:[]};};
+  pool.connect=async()=>({query:async(sql,values)=>{if(sql.startsWith('SELECT revision'))return {rows:revision?[{revision}]:[]};if(sql.startsWith('INSERT INTO guild_message_templates')){revision=values[3];inserts++;}return {rows:[]};},release:()=>{}});
+  globalThis.fetch=async(url,options)=>{if(String(url).startsWith('https://cdn.discordapp.com/'))return new Response(createCanvas(256,256).toBuffer('image/png'));if(String(url).startsWith('https://discord.com/')){if(String(url).endsWith('/oauth2/token'))return Response.json({access_token:'synthetic-only-access-token',expires_in:3600,scope:'identify guilds'});if(String(url).endsWith('/users/@me'))return Response.json({id:'synthetic-user',username:'Test',global_name:null,avatar:null});if(String(url).includes('/users/@me/guilds'))return Response.json([{id:gid,name:'Demo',permissions:permission}]);if(String(url).endsWith('/guilds/'+gid))return Response.json({id:gid});throw Error('unexpected Discord call');}return originalFetch(url,options);};
+  const server=createDashboardServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
+  const headers={Cookie:'__Host-disbot='+'x'.repeat(43),Origin:'https://bot.hold-bet.com','X-CSRF-Token':csrf,'Content-Type':'application/json'};
+  const content=Object.fromEntries(Object.entries(templateDefinitions.voice_join).filter(([k])=>!['kind','label'].includes(k)));
+  try {
+    const login=await fetch(base+'/auth/discord',{redirect:'manual'});assert.equal(login.status,302);assert.match(login.headers.get('set-cookie'),/HttpOnly; Secure; SameSite=Lax/);const redirect=new URL(login.headers.get('location'));assert.equal(redirect.searchParams.get('scope'),'identify guilds');assert.equal(redirect.searchParams.get('redirect_uri'),'https://bot.hold-bet.com/auth/discord/callback');
+    assert.equal((await fetch(base+'/auth/discord/callback?state=wrong&code=test')).status,400);
+    const stateCookie=login.headers.get('set-cookie').split(';')[0],state=redirect.searchParams.get('state');
+    const callback=await fetch(base+'/auth/discord/callback?state='+state+'&code=synthetic-code',{headers:{Cookie:stateCookie},redirect:'manual'});
+    assert.equal(callback.status,302);assert.match(callback.headers.get('set-cookie'),/__Host-disbot=.*HttpOnly; Secure; SameSite=Lax/);assert.equal(sessionStored[0].length,64);assert.ok(!sessionStored[2].includes('synthetic-only-access-token'));assert.equal(sessionStored[1].name,'Test');
+    const expired=encryptToken(JSON.stringify({state,expires:Date.now()-1}),process.env.DASHBOARD_SESSION_SECRET);
+    assert.equal((await fetch(base+'/auth/discord/callback?state='+state+'&code=synthetic-code',{headers:{Cookie:'__Host-disbot-state='+expired}})).status,400);
+    assert.equal((await fetch(base+'/api/guilds')).status,401);
+    assert.equal((await fetch(base+'/api/guilds/'+other+'/templates',{headers})).status,403);
+    permission='0';assert.equal((await fetch(base+'/api/guilds/'+gid+'/templates',{headers})).status,403);permission='32';
+    const list=await fetch(base+'/api/guilds',{headers});assert.equal(list.status,200);assert.equal((await list.json()).guilds[0].id,gid);
+    const templates=await fetch(base+'/api/guilds/'+gid+'/templates',{headers});const templateData=await templates.json();assert.equal(templateData.rankCards.length,9);assert.equal(templateData.definitions.rank_up.kind,'rank');assert.equal(templateData.definitions.rank_up.body,'');
+    const previewPath=base+'/api/guilds/'+gid+'/rank-cards/preview?tier=1';
+    assert.equal((await fetch(previewPath)).status,401);
+    assert.equal((await fetch(base+'/api/guilds/'+other+'/rank-cards/preview?tier=1',{headers})).status,403);
+    assert.equal((await fetch(base+'/api/guilds/'+gid+'/rank-cards/preview?tier=10',{headers})).status,400);
+    permission='0';assert.equal((await fetch(previewPath,{headers})).status,403);permission='32';
+    const image=await fetch(previewPath,{headers});assert.equal(image.status,200);assert.match(image.headers.get('content-type'),/image\/png/);assert.equal(Buffer.from(await image.arrayBuffer()).subarray(1,4).toString(),'PNG');
+    const path=base+'/api/guilds/'+gid+'/templates/voice_join';
+    for(const patch of [{'X-CSRF-Token':'bad'},{Origin:'https://evil.test'}])assert.equal((await fetch(path,{method:'PUT',headers:{...headers,...patch},body:JSON.stringify({revision:0,content})})).status,403);
+    assert.equal(inserts,0);assert.equal((await fetch(path,{method:'PUT',headers,body:JSON.stringify({revision:0,content})})).status,200);
+    assert.equal((await fetch(path,{method:'PUT',headers,body:JSON.stringify({revision:0,content})})).status,409);
+    assert.equal((await fetch(path+'/reset',{method:'POST',headers,body:JSON.stringify({revision:1})})).status,200);
+    permission='0';assert.equal((await fetch(path+'/reset',{method:'POST',headers,body:JSON.stringify({revision:2})})).status,403);assert.equal(inserts,2);
+  } finally {globalThis.fetch=originalFetch;pool.query=originalQuery;pool.connect=originalConnect;await new Promise(r=>server.close(r));}
+});

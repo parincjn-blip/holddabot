@@ -45,3 +45,9 @@ node tests/render-level-up.mjs
 ```
 
 Integration tests ต้องมี PostgreSQL และใช้ schema ทดสอบแยก ห้ามนำ production credentials มาใส่ในเอกสารหรือ Git การจัดทำสรุปและเตรียม Git ไม่ใช่การอนุญาตให้ deploy ใหม่หรือแก้ข้อมูล production
+
+## อัปเดต Template Studio และการ์ดยศ วันที่ 6 ตุลาคม 2026
+
+ผู้ใช้อนุมัติ deploy และเผยแพร่โค้ดล่าสุดไป repository เดิมโดยตรงแล้ว รวม Discord OAuth Template Studio, การ์ดยศต้นฉบับ 9 แบบ และพรีวิวบนเว็บ มีการตรวจ 38 tests, integration ใน schema แยก, checksum ภาพ และบริการจริง ดูรายละเอียดที่ `docs/DASHBOARD_DEPLOYMENT_2026-10-06.md` และ `docs/RANK_UP_CARDS.md`
+
+เผยแพร่ผ่าน GitHub connector ของ `parincjn-blip` เพราะ Git CLI ไม่มี push credentials; ตรวจ tree กับโค้ด local และตรวจ branch head หลังเผยแพร่ ไม่ใช้ force push ไม่รวม environment files, ข้อมูลสมาชิก, logs หรือภาพ QA ที่สร้างขึ้น

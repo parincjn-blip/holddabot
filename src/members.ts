@@ -4,6 +4,8 @@ import { getGuildSettings } from './guild-settings.js';
 import { pool } from './db.js';
 import { isFeatureEnabled } from './features.js';
 import { createWelcomeCard } from './welcome-card.js';
+import { customizeMessage } from './template-store.js';
+import { templateContext } from './message-templates.js';
 
 async function sendMemberLog(member: GuildMember | PartialGuildMember, joined: boolean) {
   const channelId = getGuildSettings(member.guild.id).channels[joined ? 'member_welcome' : 'member_leave'];
@@ -24,13 +26,13 @@ async function sendMemberLog(member: GuildMember | PartialGuildMember, joined: b
       const card = await createWelcomeCard(member);
       const attachment = new AttachmentBuilder(card, { name: 'welcome-card.png' });
       embed.setImage('attachment://welcome-card.png');
-      await channel.send({ embeds: [embed], files: [attachment] });
+      await channel.send(await customizeMessage(member.guild.id,'member_welcome',templateContext(member),{ embeds: [embed], files: [attachment] }));
       return;
     } catch (error) {
       console.error(`Welcome card generation failed for member ${member.id}`, error);
     }
   }
-  await channel.send({ embeds: [embed] });
+  await channel.send(await customizeMessage(member.guild.id,joined?'member_welcome':'member_leave',templateContext(member),{ embeds: [embed] }));
 }
 
 export async function handleMemberJoin(member: GuildMember) {

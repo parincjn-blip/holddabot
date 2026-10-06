@@ -1,5 +1,5 @@
 import type { GuildMember } from 'discord.js';
-import { AttachmentBuilder } from 'discord.js';
+import { AttachmentBuilder, type MessageCreateOptions } from 'discord.js';
 import { getGuildSettings } from './guild-settings.js';
 import { isFeatureEnabled } from './features.js';
 import { selectRankRule } from './rank-rules.js';
@@ -9,6 +9,9 @@ import { createLevelUpAnnouncement } from './level-up-announcement.js';
 import { config } from './config.js';
 import { createRoleAnnouncement } from './role-announcement.js';
 import { getMemberStats } from './xp.js';
+import { customizeMessage } from './template-store.js';
+import { templateContext } from './message-templates.js';
+import { createRankUpCardMessage } from './rank-up-card.js';
 
 export async function announceLevelUp(
   member: GuildMember,
@@ -30,7 +33,9 @@ export async function announceLevelUp(
       description: `${member.displayName} เลื่อนเป็น ${label} Level ${newLevel}`,
     });
     const emoji = member.guild.emojis.cache.find(e => e.name === 'Icrak')?.toString() ?? '🎉';
-    await channel.send({ ...createLevelUpAnnouncement(member.guild.name, source, filename, emoji, new Date(), config.timezone), files: [attachment] });
+    await channel.send(await customizeMessage(member.guild.id, source === 'message' ? 'chat_level_up' : 'talk_level_up',
+      templateContext(member,{old_level:oldLevel,new_level:newLevel,emoji}),
+      { ...createLevelUpAnnouncement(member.guild.name, source, filename, emoji, new Date(), config.timezone), files: [attachment] }));
   } catch (error) {
     console.error(`Level-up card generation failed for member ${member.id}`, error);
     throw error;
@@ -71,7 +76,17 @@ async function synchronizeRankRole(member: GuildMember): Promise<string | null> 
     const name = member.guild.roles.cache.get(target.roleId)?.name ?? 'ยศใหม่';
     if (settings.channels.rank_roles) {
       const channel = await member.guild.channels.fetch(settings.channels.rank_roles).catch(() => null);
-      if (channel?.isSendable()) await channel.send({ embeds: [createRoleAnnouncement(member, name, stats.message_level, stats.voice_level)] });
+      if (channel?.isSendable()) {
+        let announcement: MessageCreateOptions = { embeds: [createRoleAnnouncement(member, name, stats.message_level, stats.voice_level)] };
+        try {
+          announcement = await createRankUpCardMessage(member, name) ?? announcement;
+        } catch {
+          // Avatar/CDN failures must not interrupt role assignment or drop its announcement.
+          console.error('Rank-up card unavailable; using existing announcement');
+        }
+        await channel.send(await customizeMessage(member.guild.id,'rank_up',
+          templateContext(member,{role_name:name,chat_level:stats.message_level,talk_level:stats.voice_level}), announcement));
+      }
     }
     return name;
   }

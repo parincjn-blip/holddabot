@@ -1,0 +1,23 @@
+[Unit]
+Description=HoldDaBoT template dashboard
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=ai
+Group=ai
+WorkingDirectory=/home/ai/services/disbot
+Environment=NODE_ENV=production
+EnvironmentFile=/home/ai/services/disbot/.dashboard.env
+ExecStart=/usr/local/bin/node /home/ai/services/disbot/dist/dashboard.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target
